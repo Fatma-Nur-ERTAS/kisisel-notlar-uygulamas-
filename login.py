@@ -1,11 +1,11 @@
-# login.py - Giriş ekranı bcrypt destekli
+
 
 import tkinter as tk
 from tkinter import messagebox
 import veritabani
 import main
 
-# Veritabanı oluşturuluyor (zaten varsa dokunmaz)
+
 veritabani.db_olustur()
 
 def giris_ekrani():

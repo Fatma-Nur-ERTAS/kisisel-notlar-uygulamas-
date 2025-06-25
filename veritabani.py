@@ -4,7 +4,7 @@ import bcrypt
 
 DB_DOSYA = "kullanicilar.db"
 
-# Veritabanı oluşturuluyor
+
 def db_olustur():
     con = sqlite3.connect(DB_DOSYA)
     cur = con.cursor()
@@ -17,23 +17,23 @@ def db_olustur():
     con.commit()
     con.close()
 
-# Şifreyi hash'le
+
 def sifre_hashle(sifre):
     return bcrypt.hashpw(sifre.encode('utf-8'), bcrypt.gensalt())
 
-# Şifreyi kontrol et
+
 def sifre_dogrula(sifre, hashli_sifre):
     return bcrypt.checkpw(sifre.encode('utf-8'), hashli_sifre)
 
-# Yeni kullanıcı ekle
+
 def kullanici_ekle(username, password):
     con = sqlite3.connect(DB_DOSYA)
     cur = con.cursor()
     try:
-        # Eğer kullanıcı adı varsa ekleme
+       
         cur.execute("SELECT username FROM users WHERE username = ?", (username,))
         if cur.fetchone():
-            return False  # Zaten var
+            return False  
         hashed_pw = sifre_hashle(password)
         cur.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, hashed_pw))
         con.commit()
@@ -43,7 +43,7 @@ def kullanici_ekle(username, password):
     finally:
         con.close()
 
-# Giriş kontrolü
+
 def kullanici_var_mi(username, password):
     con = sqlite3.connect(DB_DOSYA)
     cur = con.cursor()
@@ -54,7 +54,7 @@ def kullanici_var_mi(username, password):
         return sifre_dogrula(password, row[0])
     return False
 
-# Kullanıcı silme
+
 def kullanici_sil(username, password):
     if not kullanici_var_mi(username, password):
         return False
@@ -66,13 +66,13 @@ def kullanici_sil(username, password):
     con.close()
     return etkilenen > 0
 
-# Kullanıcıya özel klasör oluştur
+
 def kullanici_klasoru_olustur(kullanici_adi):
     yol = os.path.join("notlar", kullanici_adi)
     os.makedirs(yol, exist_ok=True)
     return yol
 
-# Kullanıcıya özel notlar için veritabanı oluştur
+
 def veritabani_baglan_ve_olustur(klasor_yolu):
     db_yolu = os.path.join(klasor_yolu, "notlar.db")
     conn = sqlite3.connect(db_yolu)
@@ -90,6 +90,6 @@ def veritabani_baglan_ve_olustur(klasor_yolu):
     conn.commit()
     return conn, cursor
 
-# Bu dosya direkt çalıştırıldığında veritabanı oluşturulsun
+
 if __name__ == "__main__":
     db_olustur()

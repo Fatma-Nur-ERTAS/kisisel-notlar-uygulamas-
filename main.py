@@ -8,7 +8,7 @@ import sounddevice as sd
 import threading
 import os
 import datetime
-import glob
+import shutil
 import veritabani
 
 kayit = False
@@ -19,29 +19,51 @@ aktif_medya_turu = None
 aktif_kullanici = None
 resim_etiketleri = []
 ses_thread = None
-son_kaydedilen_not = None  # Son kaydedilen notu tutacak değişken
+son_kaydedilen_not = None
 
 def yazı_ayarlarini_ac(metin_kutusu):
     pencere = tk.Toplevel()
     pencere.title("Yazı Ayarları")
-    pencere.geometry("300x300")
+    pencere.geometry("300x400")
+
     font_adlari = list(font.families())
     secilen_font = tk.StringVar(value="Arial")
     secilen_boyut = tk.IntVar(value=12)
+    kalin = tk.BooleanVar()
+    italik = tk.BooleanVar()
+    altcizgi = tk.BooleanVar()
+    secilen_renk = tk.StringVar(value="#000000")
 
-    tk.Label(pencere, text="Yazı Tipi:").pack()
+    tk.Label(pencere, text="Yazı Tipi:").pack(pady=5)
     tk.OptionMenu(pencere, secilen_font, *font_adlari).pack()
 
-    tk.Label(pencere, text="Yazı Boyutu:").pack()
-    tk.Spinbox(pencere, from_=8, to=48, textvariable=secilen_boyut).pack()
+    tk.Label(pencere, text="Yazı Boyutu:").pack(pady=5)
+    tk.Spinbox(pencere, from_=8, to=72, textvariable=secilen_boyut).pack()
+
+    tk.Label(pencere, text="Yazı Stili:").pack(pady=5)
+    tk.Checkbutton(pencere, text="Kalın", variable=kalin).pack()
+    tk.Checkbutton(pencere, text="İtalik", variable=italik).pack()
+    tk.Checkbutton(pencere, text="Altı Çizili", variable=altcizgi).pack()
 
     def renk_sec():
         renk = colorchooser.askcolor()[1]
         if renk:
-            metin_kutusu.config(fg=renk)
+            secilen_renk.set(renk)
 
-    tk.Button(pencere, text="Renk Seç", command=renk_sec).pack(pady=5)
-    tk.Button(pencere, text="Uygula", command=lambda: metin_kutusu.config(font=(secilen_font.get(), secilen_boyut.get()))).pack(pady=5)
+    tk.Button(pencere, text="Yazı Rengini Seç", command=renk_sec).pack(pady=10)
+
+    def uygula():
+        stil = ""
+        if kalin.get():
+            stil += "bold"
+        if italik.get():
+            stil += " italic"
+        if altcizgi.get():
+            stil += " underline"
+        font_ayari = (secilen_font.get(), secilen_boyut.get(), stil.strip())
+        metin_kutusu.config(font=font_ayari, fg=secilen_renk.get())
+
+    tk.Button(pencere, text="Ayarları Uygula", command=uygula, bg="#acf").pack(pady=10)
 
 def ses_kayit_callback(indata, frames, time, status):
     global kayit_verisi, kayit
@@ -137,27 +159,43 @@ def video_ekle(metin_kutusu):
 
 def not_ekle(kullanici, icerik, medya_yolu, medya_turu):
     klasor = veritabani.kullanici_klasoru_olustur(kullanici)
-    
-    # Kullanıcıdan dosya adı ve yerini alalım
     dosya_adi = filedialog.asksaveasfilename(defaultextension=".html", filetypes=[("HTML Dosyaları", "*.html")], title="Notu Kaydet")
-    
-    if dosya_adi:  # Eğer dosya adı belirlenmişse
+
+    if dosya_adi:
         global son_kaydedilen_not
-        with open(dosya_adi, "w", encoding="utf-8") as f:
-            f.write(f"<html><body>")
-            f.write(f"<h3>Kullanıcı: {kullanici}</h3>")
-            f.write(f"<p><strong>Tarih:</strong> {datetime.datetime.now()}</p>")
-            f.write(f"<p>{icerik.strip().replace('\n', '<br>')}</p>")
-            if medya_yolu and medya_turu == "video":
-                f.write(f"<video controls width='320' height='240'><source src='{medya_yolu}' type='video/mp4'></video><br>")
-            elif medya_yolu and medya_turu == "ses":
-                f.write(f"<audio controls><source src='{medya_yolu}' type='audio/wav'></audio><br>")
-            elif medya_yolu and medya_turu == "resim":
-                f.write(f"<img src='{medya_yolu}' width='300'><br>")
-            f.write("</body></html>")
-        
-        son_kaydedilen_not = dosya_adi  # Son kaydedilen notu saklıyoruz
-        messagebox.showinfo("Başarılı", f"Not HTML olarak kaydedildi:\n{dosya_adi}")
+        try:
+            with open(dosya_adi, "w", encoding="utf-8") as f:
+                f.write(f"<html><body>")
+                f.write(f"<h3>Kullanıcı: {kullanici}</h3>")
+                f.write(f"<p><strong>Tarih:</strong> {datetime.datetime.now()}</p>")
+                f.write(f"<p>{icerik.strip().replace('\n', '<br>')}</p>")
+
+                if medya_yolu and medya_turu == "video":
+                    f.write(f"<video controls width='320' height='240'><source src='{medya_yolu}' type='video/mp4'></video><br>")
+
+                elif medya_yolu and medya_turu == "ses":
+                    try:
+                        hedef_yol = os.path.join(os.path.dirname(dosya_adi), os.path.basename(medya_yolu))
+                        shutil.copy(medya_yolu, hedef_yol)
+                        f.write(f"<audio controls><source src='{os.path.basename(medya_yolu)}' type='audio/wav'></audio><br>")
+                    except Exception as e:
+                        messagebox.showerror("Hata", f"Ses dosyası kopyalanamadı: {e}")
+
+                elif medya_yolu and medya_turu == "resim":
+                    try:
+                        hedef_yol = os.path.join(os.path.dirname(dosya_adi), os.path.basename(medya_yolu))
+                        shutil.copy(medya_yolu, hedef_yol)
+                        f.write(f"<img src='{os.path.basename(medya_yolu)}' width='300'><br>")
+                    except Exception as e:
+                        messagebox.showerror("Hata", f"Resim dosyası kopyalanamadı: {e}")
+
+                f.write("</body></html>")
+
+            son_kaydedilen_not = dosya_adi
+            messagebox.showinfo("Başarılı", f"Not HTML olarak kaydedildi:\n{dosya_adi}")
+
+        except Exception as e:
+            messagebox.showerror("Hata", f"Not kaydedilemedi: {e}")
     else:
         messagebox.showwarning("Uyarı", "Dosya adı seçilmedi.")
 
@@ -171,7 +209,7 @@ def kaydet(metin_kutusu):
 def notlari_goster():
     global son_kaydedilen_not
     if son_kaydedilen_not:
-        os.startfile(son_kaydedilen_not)  # Son kaydedilen notu açıyoruz
+        os.startfile(son_kaydedilen_not)
     else:
         messagebox.showinfo("Bilgi", "Henüz kaydedilmiş bir not bulunamadı.")
 
@@ -181,16 +219,14 @@ def main_uygulama(kullanici):
     veritabani.kullanici_klasoru_olustur(kullanici)
     pencere = tk.Tk()
     pencere.title(f"Kişisel Notlar - {kullanici}")
-    
-    # Ekranın ortasında açmak için pencereyi konumlandırıyoruz
     x = (pencere.winfo_screenwidth() - 1000) // 2
     y = (pencere.winfo_screenheight() - 700) // 2
     pencere.geometry(f"1000x700+{x}+{y}")
-    
+
     ust_cerceve = tk.Frame(pencere)
     ust_cerceve.pack(side="top", fill="x")
 
-    tk.Button(ust_cerceve, text="Yazı Ayarları", command=lambda: yazı_ayarlarını_ac(metin_kutusu)).pack(side="left", padx=5)
+    tk.Button(ust_cerceve, text="Yazı Ayarları", command=lambda: yazı_ayarlarini_ac(metin_kutusu)).pack(side="left", padx=5)
     tk.Button(ust_cerceve, text="Resim Ekle", command=lambda: resim_ekle(canvas)).pack(side="left", padx=5)
     tk.Button(ust_cerceve, text="Video Ekle", command=lambda: video_ekle(metin_kutusu)).pack(side="left", padx=5)
     tk.Button(ust_cerceve, text="Sesli Not Ekle", command=lambda: ses_kayit_penceresi(metin_kutusu)).pack(side="left", padx=5)
