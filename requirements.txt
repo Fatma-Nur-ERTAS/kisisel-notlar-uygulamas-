@@ -1,0 +1,6 @@
+tk
+sounddevice
+wavio
+numpy
+Pillow
+bcrypt
