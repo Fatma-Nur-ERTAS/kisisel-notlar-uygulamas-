@@ -1,1 +1,1 @@
-# kisisel-notlar-uygulamas-
+# kisisel-notlar-uygulaması-
